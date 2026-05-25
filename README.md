@@ -190,6 +190,9 @@ npm run typecheck
 npm test
 ```
 
+Optional: build a codebase knowledge graph with [graphify](https://github.com/safishamsi/graphify) —
+see [CONTRIBUTING.md](./CONTRIBUTING.md#optional-codebase-knowledge-graph-graphify).
+
 ## Contributing
 
 Contributions are welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md). Because the

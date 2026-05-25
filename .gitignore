@@ -7,3 +7,4 @@ traces/
 .env.local
 coverage/
 *.tsbuildinfo
+graphify-out/
