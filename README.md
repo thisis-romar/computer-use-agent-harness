@@ -201,6 +201,8 @@ commits with `git commit -s` (DCO).
 
 This software can control a desktop. Report vulnerabilities **privately** per
 [SECURITY.md](./SECURITY.md) — do not open public issues for security reports.
+Maintainers: see [docs/REPO-HARDENING.md](./docs/REPO-HARDENING.md) for the
+pre-public branch-protection and security checklist.
 
 ## License
 
