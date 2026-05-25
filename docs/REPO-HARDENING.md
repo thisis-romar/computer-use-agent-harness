@@ -39,7 +39,21 @@ Settings → Branches → Add branch ruleset (or classic protection) targeting `
 - [ ] Default **workflow permissions: read-only** (the CI workflow already sets
       `permissions: contents: read`).
 
-## 5. Post-launch cleanup
+## 5. Releasing to npm (provenance)
+
+The `Release` workflow (`.github/workflows/release.yml`) publishes on a
+`v*.*.*` tag push with build provenance.
+
+- [ ] Add repo secret **`NPM_TOKEN`** (npm **Automation** token) under
+      Settings → Secrets and variables → Actions.
+- [ ] Cut a release: bump `version` in `package.json`, commit, then
+      `git tag v0.1.0 && git push origin v0.1.0`. The workflow verifies the tag
+      matches `package.json`, builds, tests, and runs
+      `npm publish --provenance --access public`.
+- [ ] Provenance requires `id-token: write` (already set) and a public repo for
+      the attestation to be publicly verifiable.
+
+## 6. Post-launch cleanup
 - [ ] Confirm the **`build-test`** check is green on a PR before requiring it.
 - [ ] Delete the `claude/quirky-lamport-vENWW` branch once `main` is the default.
 

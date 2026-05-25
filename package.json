@@ -27,7 +27,8 @@
     "smoke": "node dist/index.js --self-test",
     "test": "vitest run",
     "test:watch": "vitest",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "mcp",
