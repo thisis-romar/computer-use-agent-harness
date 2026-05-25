@@ -27,8 +27,9 @@ browser automation and future accessibility-tree integrations.
   that escalates and blocks dangerous actions deterministically.
 - **JSONL action tracing** — one valid JSON record per invocation, with payload
   redaction by default.
-- **Zoom- and region-aware screenshots** with stable metadata (logical region,
-  screen size, pixel size, scale, zoom).
+- **Zoom- and region-aware screenshots** with stable metadata (region,
+  screen size, pixel size, `scaleX`/`scaleY`, zoom, capture/encode timings,
+  byte size, image hash) — per-monitor-DPI-correct and multi-monitor on Windows.
 - **Windows native backend** behind a single interface (PowerShell + Win32
   P/Invoke), with per-monitor-DPI-v2 awareness, multi-monitor (VirtualScreen)
   capture, and SendInput-based keyboard input — plus boundary stubs for browser
@@ -134,7 +135,7 @@ secure proxy before exposing it.
 | `harness_status` | safe | Config, backend availability, policy, telemetry target |
 | `policy_describe` / `computer_policy_status` | safe | Mode, max tier, and active rules |
 | `computer_trace_status` | safe | Telemetry recorder status |
-| `computer_screen_info` | safe | Primary screen size |
+| `computer_screen_info` | safe | Screen size (full virtual desktop across all monitors on Windows) |
 | `computer_cursor_position` | safe | Current cursor position |
 | `computer_window_list` | safe | Visible windows (backend-permitting) |
 | `computer_active_window` | safe | Focused window (backend-permitting) |
@@ -173,14 +174,14 @@ mode. Blocked and confirmation-gated actions are still traced (with
 Every invocation appends one JSON line to the trace file:
 
 ```json
-{"ts":"2026-05-25T18:00:00.000Z","sessionId":"…","seq":0,"tool":"computer_type","status":"blocked","durationMs":0,"policy":{"allowed":false,"effectiveTier":"critical","maxTier":"medium","firedRules":["destructive-payload"],"reason":"Blocked: recursive force file deletion"},"args":{"text":"redacted(len=27,sha256=…)"}}
+{"id":"trace_…","ts":"2026-05-25T18:00:00.000Z","sessionId":"…","seq":0,"tool":"computer_type","status":"blocked","durationMs":0,"policy":{"allowed":false,"confirmationRequired":false,"effectiveTier":"critical","maxTier":"medium","mode":"enforce","firedRules":["destructive-payload"],"reason":"Blocked: recursive force file deletion"},"args":{"text":"redacted(len=27,sha256=…)"}}
 ```
 
 ## Architecture
 
 ```
 src/
-  index.ts            entry point + CLI (--self-test) + STDIO transport
+  index.ts            entry point + CLI (--self-test) + STDIO/HTTP transport
   server.ts           assembles McpServer, policy, tracer, backend
   tools.ts            tool definitions; policy-gates and traces every call
   config.ts           env-driven configuration
@@ -200,6 +201,21 @@ npm test
 
 Optional: build a codebase knowledge graph with [graphify](https://github.com/safishamsi/graphify) —
 see [CONTRIBUTING.md](./CONTRIBUTING.md#optional-codebase-knowledge-graph-graphify).
+
+### Validate the Windows backend (on Windows)
+
+CI only exercises the dry-run path; the native Windows backend must be checked
+on a real desktop session:
+
+```powershell
+npm ci; npm run build
+node scripts/windows-smoke.mjs                 # geometry + screenshots → full.png / region.png
+$env:CUA_SMOKE_INPUT="1"; node scripts/windows-smoke.mjs   # also move/click/type/key (focus a scratch Notepad first)
+```
+
+Inspect `full.png`/`region.png` for correct pixels under display scaling and
+across monitors. Input actions drive the real desktop; they cannot reach
+elevated/UAC windows.
 
 ## Contributing
 
