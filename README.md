@@ -1,4 +1,4 @@
-# 🦺Computer Use Agent Harness🤖
+# 🦺🤖Computer Use Agent Harness🤖🖱️
 
 A hardened MCP computer-use server for safe, observable, high-performance AI desktop automation.
 
