@@ -57,6 +57,29 @@ contacting us.
 > The maintainers should have counsel review it before relying on it
 > commercially.
 
+## Optional: codebase knowledge graph (graphify)
+
+[graphify](https://github.com/safishamsi/graphify) is an **optional, third-party**
+Claude Code skill (not a dependency of this project) that builds a queryable
+knowledge graph of the repo — handy for onboarding and for giving AI agents
+cheaper, structured context instead of re-reading raw files.
+
+```bash
+pip install graphifyy && graphify install   # Python 3.10+ (macOS: use pipx)
+# then, in Claude Code at the repo root:
+/graphify
+```
+
+Output is written to `graphify-out/` (already git-ignored — do not commit it).
+
+Notes:
+- graphify uses **Claude vision**, so it **sends file contents to the Anthropic
+  API** (cost + privacy implications). Only run it on code you're comfortable
+  sending.
+- We intentionally **do not vendor** graphify into this repo: its upstream
+  license is unstated, and this project is dual-licensed (AGPL-3.0-only + a
+  commercial license). Install it as an external tool instead.
+
 ## Questions
 
 Open a discussion or issue, or contact **admin+github@emblemprojects.com**.
