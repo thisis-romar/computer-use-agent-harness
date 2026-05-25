@@ -190,6 +190,18 @@ npm run typecheck
 npm test
 ```
 
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md). Because the
+project is dual-licensed, contributions are accepted under AGPL-3.0-only **and**
+a CLA grant that lets Emblem Projects relicense them commercially. Sign off your
+commits with `git commit -s` (DCO).
+
+## Security
+
+This software can control a desktop. Report vulnerabilities **privately** per
+[SECURITY.md](./SECURITY.md) — do not open public issues for security reports.
+
 ## License
 
 `computer-use-agent-harness` is **dual-licensed**:
