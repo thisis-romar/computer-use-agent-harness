@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 Emblem Projects. Dual-licensed; commercial license available.
+
 import { performance } from "node:perf_hooks";
 
 import { finalizeScreenshot, sleep } from "../capture/screenshot.js";

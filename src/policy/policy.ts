@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 Emblem Projects. Dual-licensed; commercial license available.
+
 import type { PolicyMode } from "../config.js";
 import { type ActionDescriptor, type RiskTier, tierRank } from "../types.js";
 import { defaultRules, type PolicyRule } from "./rules.js";

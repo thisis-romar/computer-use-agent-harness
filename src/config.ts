@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 Emblem Projects. Dual-licensed; commercial license available.
+
 import { RISK_TIERS, type RiskTier } from "./types.js";
 
 export type BackendSelector =

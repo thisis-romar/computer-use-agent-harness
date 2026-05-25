@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 Emblem Projects. Dual-licensed; commercial license available.
+
 import { finalizeScreenshot, syntheticPng } from "../capture/screenshot.js";
 import { logger } from "../logger.js";
 import type { MouseButton, Point, Region, Size, WindowInfo } from "../types.js";

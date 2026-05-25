@@ -192,4 +192,15 @@ npm test
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+`computer-use-agent-harness` is **dual-licensed**:
+
+- **Open source:** [GNU AGPL-3.0-only](./LICENSE). You may use, modify, and
+  redistribute under the AGPL. Note **AGPL §13**: if you run a modified version
+  to provide a service over a network (e.g. the HTTP transport), you must offer
+  the complete corresponding source to that service's users.
+- **Commercial:** a separate commercial license removes the AGPL copyleft and
+  network-source obligations for closed-source or hosted-service use. See
+  [LICENSE-COMMERCIAL.md](./LICENSE-COMMERCIAL.md).
+
+Copyright (c) 2026 Emblem Projects (GitHub: `emblem-NLP`).
+Commercial-license inquiries: **admin+github@emblemprojects.com**.

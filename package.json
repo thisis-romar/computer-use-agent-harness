@@ -8,10 +8,13 @@
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "author": "Emblem Projects <admin+github@emblemprojects.com>",
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "LICENSE-COMMERCIAL.md",
+    "NOTICE"
   ],
   "engines": {
     "node": ">=18"
@@ -38,7 +41,7 @@
     "screen-capture",
     "automation"
   ],
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "express": "^5.1.0",
