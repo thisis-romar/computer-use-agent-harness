@@ -105,9 +105,9 @@ function parseBackend(value: string | undefined): BackendSelector {
     : "auto";
 }
 
-function defaultTracePath(): string {
+function defaultTracePath(env: NodeJS.ProcessEnv): string {
   const stamp = new Date().toISOString().slice(0, 10);
-  return process.env.CUA_TELEMETRY_PATH ?? `traces/actions-${stamp}.jsonl`;
+  return env.CUA_TELEMETRY_PATH ?? `traces/actions-${stamp}.jsonl`;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): HarnessConfig {
@@ -129,7 +129,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HarnessConfig 
     maxRiskTier: parseTier(env.CUA_MAX_RISK_TIER, "medium"),
     telemetry: {
       enabled: parseBool(env.CUA_TELEMETRY_ENABLED, true),
-      path: defaultTracePath(),
+      path: defaultTracePath(env),
       redactPayloads: parseBool(env.CUA_REDACT_PAYLOADS, true),
     },
   };

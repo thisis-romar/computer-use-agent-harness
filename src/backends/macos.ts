@@ -16,6 +16,33 @@ import {
 } from "./backend.js";
 import { commandExists, run } from "./exec.js";
 
+// Pure cliclick argument builders — exported for argv unit testing.
+
+export function macMoveArgs(p: Point): string[] {
+  return [`m:${p.x},${p.y}`];
+}
+
+export function macClickArgs(p: Point | undefined, button: MouseButton, count: number): string[] {
+  const at = p ? `${p.x},${p.y}` : ".";
+  const verb = button === "right" ? "rc" : count >= 2 ? "dc" : "c";
+  return [`${verb}:${at}`];
+}
+
+export function macTypeArgs(text: string): string[] {
+  return [`t:${text}`];
+}
+
+export function macKeyArgs(combo: string): string[] {
+  const parts = combo.split("+").map((s) => s.trim().toLowerCase());
+  const key = parts.pop() ?? "";
+  const mods = parts.join(",");
+  return mods ? [`kd:${mods}`, `t:${key}`, `ku:${mods}`] : [`kp:${key}`];
+}
+
+export function macDragArgs(from: Point, to: Point): string[] {
+  return [`dd:${from.x},${from.y}`, `du:${to.x},${to.y}`];
+}
+
 /**
  * macOS backend. Capture uses the built-in `screencapture`/`sips`; input uses
  * `cliclick` (https://github.com/BlueM/cliclick), which must be installed and
@@ -96,37 +123,27 @@ export class MacosBackend implements ComputerBackend {
 
   async moveMouse(p: Point): Promise<void> {
     await this.ensure();
-    await run("cliclick", [`m:${p.x},${p.y}`]);
+    await run("cliclick", macMoveArgs(p));
   }
 
   async click(p: Point | undefined, button: MouseButton, count: number): Promise<void> {
     await this.ensure();
-    const at = p ? `${p.x},${p.y}` : ".";
-    const verb = button === "right" ? "rc" : count >= 2 ? "dc" : "c";
-    await run("cliclick", [`${verb}:${at}`]);
+    await run("cliclick", macClickArgs(p, button, count));
   }
 
   async typeText(text: string): Promise<void> {
     await this.ensure();
-    await run("cliclick", [`t:${text}`]);
+    await run("cliclick", macTypeArgs(text));
   }
 
   async key(combo: string): Promise<void> {
     await this.ensure();
-    // cliclick uses key-down/up for modifiers; map "cmd+c" -> kd:cmd c ku:cmd.
-    const parts = combo.split("+").map((s) => s.trim().toLowerCase());
-    const key = parts.pop() ?? "";
-    const mods = parts.join(",");
-    if (mods) {
-      await run("cliclick", [`kd:${mods}`, `t:${key}`, `ku:${mods}`]);
-    } else {
-      await run("cliclick", [`kp:${key}`]);
-    }
+    await run("cliclick", macKeyArgs(combo));
   }
 
   async scroll(p: Point | undefined, _dx: number, dy: number): Promise<void> {
     await this.ensure();
-    if (p) await run("cliclick", [`m:${p.x},${p.y}`]);
+    if (p) await run("cliclick", macMoveArgs(p));
     // cliclick lacks a scroll verb; approximate via key presses on a focused view.
     const key = dy >= 0 ? "arrow-down" : "arrow-up";
     for (let i = 0; i < Math.abs(dy); i++) await run("cliclick", [`kp:${key}`]);
@@ -135,7 +152,7 @@ export class MacosBackend implements ComputerBackend {
   async drag(to: Point): Promise<void> {
     await this.ensure();
     const from = await this.cursorPosition();
-    await run("cliclick", [`dd:${from.x},${from.y}`, `du:${to.x},${to.y}`]);
+    await run("cliclick", macDragArgs(from, to));
   }
 
   async windows(): Promise<WindowInfo[]> {

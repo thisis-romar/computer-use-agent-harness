@@ -24,6 +24,30 @@ const MOUSE_FLAGS: Record<MouseButton, { down: number; up: number }> = {
   middle: { down: 0x0020, up: 0x0040 },
 };
 
+const SENDKEYS_MODIFIERS: Record<string, string> = {
+  ctrl: "^",
+  control: "^",
+  alt: "%",
+  shift: "+",
+};
+
+// Pure builders — exported for unit testing the (bug-prone) SendKeys escaping
+// and key-combo translation without invoking PowerShell.
+
+/** Escape literal text for SendKeys: special chars are wrapped, `'` doubled for PS. */
+export function winSendKeysEscape(text: string): string {
+  return text.replace(/[+^%~(){}[\]]/g, "{$&}").replace(/'/g, "''");
+}
+
+/** Translate a combo like "ctrl+c" into a SendKeys string like "^c". */
+export function winKeyToSendKeys(combo: string): string {
+  const parts = combo.split("+").map((s) => s.trim().toLowerCase());
+  const key = parts.pop() ?? "";
+  const mods = parts.map((m) => SENDKEYS_MODIFIERS[m] ?? "").join("");
+  const sendkey = key.length === 1 ? key : `{${key.toUpperCase()}}`;
+  return `${mods}${sendkey}`;
+}
+
 /** Windows backend driven entirely through PowerShell + Win32 P/Invoke. */
 export class WindowsBackend implements ComputerBackend {
   readonly name = "windows";
@@ -126,21 +150,15 @@ export class WindowsBackend implements ComputerBackend {
 
   async typeText(text: string): Promise<void> {
     await this.ensure();
-    const escaped = text.replace(/[+^%~(){}[\]]/g, "{$&}").replace(/'/g, "''");
     await this.ps(
-      `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${escaped}')`,
+      `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${winSendKeysEscape(text)}')`,
     );
   }
 
   async key(combo: string): Promise<void> {
     await this.ensure();
-    const map: Record<string, string> = { ctrl: "^", control: "^", alt: "%", shift: "+" };
-    const parts = combo.split("+").map((s) => s.trim().toLowerCase());
-    const key = parts.pop() ?? "";
-    const mods = parts.map((m) => map[m] ?? "").join("");
-    const sendkey = key.length === 1 ? key : `{${key.toUpperCase()}}`;
     await this.ps(
-      `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${mods}${sendkey}')`,
+      `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${winKeyToSendKeys(combo)}')`,
     );
   }
 

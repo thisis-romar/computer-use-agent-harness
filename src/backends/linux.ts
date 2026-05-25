@@ -11,9 +11,53 @@ import {
   type ScreenshotResult,
   BackendUnavailableError,
 } from "./backend.js";
-import { commandExists, run, runBinary } from "./exec.js";
+import { type Command, commandExists, run, runAll, runBinary } from "./exec.js";
 
-const BUTTON_CODE: Record<MouseButton, string> = { left: "1", middle: "2", right: "3" };
+export const LINUX_BUTTON_CODE: Record<MouseButton, string> = { left: "1", middle: "2", right: "3" };
+
+// Pure command builders — exported so the exact argv can be unit-tested without
+// executing xdotool. Each returns the ordered command vector(s) a method runs.
+
+export function linuxMoveCmds(p: Point): Command[] {
+  return [{ cmd: "xdotool", args: ["mousemove", String(p.x), String(p.y)] }];
+}
+
+export function linuxClickCmds(p: Point | undefined, button: MouseButton, count: number): Command[] {
+  const cmds: Command[] = [];
+  if (p) cmds.push({ cmd: "xdotool", args: ["mousemove", String(p.x), String(p.y)] });
+  cmds.push({
+    cmd: "xdotool",
+    args: ["click", "--repeat", String(Math.max(1, count)), LINUX_BUTTON_CODE[button]],
+  });
+  return cmds;
+}
+
+export function linuxTypeCmds(text: string): Command[] {
+  return [{ cmd: "xdotool", args: ["type", "--clearmodifiers", "--", text] }];
+}
+
+export function linuxKeyCmds(combo: string): Command[] {
+  return [{ cmd: "xdotool", args: ["key", "--clearmodifiers", combo] }];
+}
+
+export function linuxScrollCmds(p: Point | undefined, dx: number, dy: number): Command[] {
+  const cmds: Command[] = [];
+  if (p) cmds.push({ cmd: "xdotool", args: ["mousemove", String(p.x), String(p.y)] });
+  const vButton = dy >= 0 ? "5" : "4";
+  for (let i = 0; i < Math.abs(dy); i++) cmds.push({ cmd: "xdotool", args: ["click", vButton] });
+  const hButton = dx >= 0 ? "7" : "6";
+  for (let i = 0; i < Math.abs(dx); i++) cmds.push({ cmd: "xdotool", args: ["click", hButton] });
+  return cmds;
+}
+
+/** Returns [mousedown, mousemove, mouseup]; the method runs mouseup in `finally`. */
+export function linuxDragCmds(to: Point): [Command, Command, Command] {
+  return [
+    { cmd: "xdotool", args: ["mousedown", "1"] },
+    { cmd: "xdotool", args: ["mousemove", String(to.x), String(to.y)] },
+    { cmd: "xdotool", args: ["mouseup", "1"] },
+  ];
+}
 
 /**
  * X11 backend driven by `xdotool` (input) and ImageMagick `import` or `scrot`
@@ -101,41 +145,37 @@ export class LinuxBackend implements ComputerBackend {
 
   async moveMouse(p: Point): Promise<void> {
     await this.ensure();
-    await run("xdotool", ["mousemove", String(p.x), String(p.y)]);
+    await runAll(linuxMoveCmds(p));
   }
 
   async click(p: Point | undefined, button: MouseButton, count: number): Promise<void> {
     await this.ensure();
-    if (p) await run("xdotool", ["mousemove", String(p.x), String(p.y)]);
-    await run("xdotool", ["click", "--repeat", String(Math.max(1, count)), BUTTON_CODE[button]]);
+    await runAll(linuxClickCmds(p, button, count));
   }
 
   async typeText(text: string): Promise<void> {
     await this.ensure();
-    await run("xdotool", ["type", "--clearmodifiers", "--", text]);
+    await runAll(linuxTypeCmds(text));
   }
 
   async key(combo: string): Promise<void> {
     await this.ensure();
-    await run("xdotool", ["key", "--clearmodifiers", combo]);
+    await runAll(linuxKeyCmds(combo));
   }
 
   async scroll(p: Point | undefined, dx: number, dy: number): Promise<void> {
     await this.ensure();
-    if (p) await run("xdotool", ["mousemove", String(p.x), String(p.y)]);
-    const vButton = dy >= 0 ? "5" : "4";
-    for (let i = 0; i < Math.abs(dy); i++) await run("xdotool", ["click", vButton]);
-    const hButton = dx >= 0 ? "7" : "6";
-    for (let i = 0; i < Math.abs(dx); i++) await run("xdotool", ["click", hButton]);
+    await runAll(linuxScrollCmds(p, dx, dy));
   }
 
   async drag(to: Point): Promise<void> {
     await this.ensure();
-    await run("xdotool", ["mousedown", "1"]);
+    const [down, move, up] = linuxDragCmds(to);
+    await run(down.cmd, down.args);
     try {
-      await run("xdotool", ["mousemove", String(to.x), String(to.y)]);
+      await run(move.cmd, move.args);
     } finally {
-      await run("xdotool", ["mouseup", "1"]);
+      await run(up.cmd, up.args); // always release the button
     }
   }
 

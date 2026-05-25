@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) 2026 Emblem Projects. Dual-licensed; commercial license available.
 
+import { readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -138,5 +142,29 @@ describe("MCP server (in-memory, dry-run)", () => {
       expect(res.isError).toBe(true);
       expect(jsonOf(res)).toMatchObject({ blocked: true });
     });
+  });
+
+  it("redacts key-combo payloads in the telemetry trace", async () => {
+    const path = join(tmpdir(), `cua-srv-trace-${Date.now()}-${Math.random().toString(36).slice(2)}.jsonl`);
+    const config = loadConfig({
+      CUA_DRY_RUN: "true",
+      CUA_TELEMETRY_ENABLED: "true",
+      CUA_TELEMETRY_PATH: path,
+    } as NodeJS.ProcessEnv);
+    const { server } = createServer(config);
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: "test", version: "0.0.0" });
+    await Promise.all([server.connect(st), client.connect(ct)]);
+    try {
+      await client.callTool({ name: "computer_key", arguments: { keys: "ctrl+v" } });
+      const line = (await readFile(path, "utf8")).trim().split("\n").at(-1)!;
+      const rec = JSON.parse(line);
+      expect(rec.tool).toBe("computer_key");
+      expect(rec.args.keys).toMatch(/^redacted\(/);
+      expect(rec.args.keys).not.toContain("ctrl+v");
+    } finally {
+      await client.close();
+      await rm(path, { force: true }).catch(() => undefined);
+    }
   });
 });

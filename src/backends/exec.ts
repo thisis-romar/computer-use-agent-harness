@@ -8,6 +8,17 @@ export interface ExecResult {
   stderr: string;
 }
 
+/** A single external command with an explicit argument vector. */
+export interface Command {
+  cmd: string;
+  args: string[];
+}
+
+/** Run a sequence of commands in order. */
+export async function runAll(commands: Command[]): Promise<void> {
+  for (const c of commands) await run(c.cmd, c.args);
+}
+
 /**
  * Run an external command with an explicit argument array.
  *
