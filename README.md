@@ -5,9 +5,9 @@ A hardened MCP computer-use server for safe, observable, high-performance AI des
 `computer-use-agent-harness` is a TypeScript-first [Model Context Protocol](https://modelcontextprotocol.io)
 server for AI-driven desktop control. It extends the lightweight computer-use
 MCP pattern into a full agent harness with structured tools, risk-tier policy
-enforcement, action tracing, screenshot metadata, region/zoom capture, and
-native-backend boundaries for Windows, macOS, Linux, browser automation, and
-future accessibility-tree integrations.
+enforcement, action tracing, screenshot metadata, region/zoom capture, and a
+Windows-first native backend, with interface-complete boundary stubs for
+browser automation and future accessibility-tree integrations.
 
 > [!WARNING]
 > **This software can control your computer.** It moves the mouse, types
@@ -27,10 +27,13 @@ future accessibility-tree integrations.
   that escalates and blocks dangerous actions deterministically.
 - **JSONL action tracing** — one valid JSON record per invocation, with payload
   redaction by default.
-- **Zoom- and region-aware screenshots** with stable metadata (logical region,
-  screen size, pixel size, scale, zoom).
-- **Pluggable native backends** behind a single interface: Linux/X11, macOS,
-  Windows, plus boundary stubs for browser and accessibility-tree drivers.
+- **Zoom- and region-aware screenshots** with stable metadata (region,
+  screen size, pixel size, `scaleX`/`scaleY`, zoom, capture/encode timings,
+  byte size, image hash) — per-monitor-DPI-correct and multi-monitor on Windows.
+- **Windows native backend** behind a single interface (PowerShell + Win32
+  P/Invoke), with per-monitor-DPI-v2 awareness, multi-monitor (VirtualScreen)
+  capture, and SendInput-based keyboard input — plus boundary stubs for browser
+  and accessibility-tree drivers.
 - **Dry-run mode** so the full tool → policy → telemetry path runs in headless
   CI without touching a real desktop.
 
@@ -45,16 +48,22 @@ Requires Node.js >= 20.
 
 ### Native backend prerequisites
 
-The server selects a backend by host platform (override with `CUA_BACKEND`).
+The supported native backend is **Windows only** (override with `CUA_BACKEND`).
 
 | Platform | Capture | Input | Install |
 | --- | --- | --- | --- |
-| Linux/X11 | ImageMagick `import` or `scrot` | `xdotool` | `apt install xdotool imagemagick` (needs a reachable `$DISPLAY`) |
-| macOS | `screencapture` / `sips` (built-in) | `cliclick` | `brew install cliclick` (+ Accessibility permission) |
-| Windows | PowerShell + System.Drawing | PowerShell + SendKeys / Win32 | built-in |
+| Windows 10/11 | PowerShell + System.Drawing (multi-monitor VirtualScreen) | PowerShell + Win32 SendInput | built-in (PowerShell + .NET ship with Windows) |
+
+The Windows backend uses per-monitor-DPI-v2 awareness for correct coordinates
+under display scaling, captures across all monitors via the VirtualScreen, and
+drives input with SendInput (Unicode typing + virtual-key combos). It cannot
+automate elevated/UAC windows or the Secure Desktop, and SendInput is
+focus-dependent.
 
 `browser` and `accessibility` backends are interface-complete boundary stubs;
-they report unavailable until a driver is wired in.
+they report unavailable until a driver is wired in. On non-Windows hosts
+(dev/CI), `auto` falls back to the browser stub and `dry-run` simulates actions
+— there is no native Linux/macOS automation.
 
 ## Running
 
@@ -96,7 +105,7 @@ All configuration is via environment variables:
 | --- | --- | --- |
 | `CUA_TRANSPORT` | `stdio` | `stdio` or `http` |
 | `CUA_HTTP_PORT` | `3099` | Port for the HTTP transport |
-| `CUA_BACKEND` | `auto` | `auto`, `linux`, `macos`, `windows`, `browser`, `accessibility`, `dry-run` |
+| `CUA_BACKEND` | `auto` | `auto`, `windows`, `browser`, `accessibility`, `dry-run` |
 | `CUA_DRY_RUN` | `false` | Simulate mutating actions; screenshots return synthetic PNGs |
 | `CUA_MAX_RISK_TIER` | `medium` | Highest tier the policy will permit |
 | `CUA_POLICY_MODE` | `enforce` | Tier-ceiling posture: `enforce`, `warn`, or `confirm` |
@@ -126,7 +135,7 @@ secure proxy before exposing it.
 | `harness_status` | safe | Config, backend availability, policy, telemetry target |
 | `policy_describe` / `computer_policy_status` | safe | Mode, max tier, and active rules |
 | `computer_trace_status` | safe | Telemetry recorder status |
-| `computer_screen_info` | safe | Primary screen size |
+| `computer_screen_info` | safe | Screen size (full virtual desktop across all monitors on Windows) |
 | `computer_cursor_position` | safe | Current cursor position |
 | `computer_window_list` | safe | Visible windows (backend-permitting) |
 | `computer_active_window` | safe | Focused window (backend-permitting) |
@@ -165,22 +174,22 @@ mode. Blocked and confirmation-gated actions are still traced (with
 Every invocation appends one JSON line to the trace file:
 
 ```json
-{"ts":"2026-05-25T18:00:00.000Z","sessionId":"…","seq":0,"tool":"computer_type","status":"blocked","durationMs":0,"policy":{"allowed":false,"effectiveTier":"critical","maxTier":"medium","firedRules":["destructive-payload"],"reason":"Blocked: recursive force file deletion"},"args":{"text":"redacted(len=27,sha256=…)"}}
+{"id":"trace_…","ts":"2026-05-25T18:00:00.000Z","sessionId":"…","seq":0,"tool":"computer_type","status":"blocked","durationMs":0,"policy":{"allowed":false,"confirmationRequired":false,"effectiveTier":"critical","maxTier":"medium","mode":"enforce","firedRules":["destructive-payload"],"reason":"Blocked: recursive force file deletion"},"args":{"text":"redacted(len=27,sha256=…)"}}
 ```
 
 ## Architecture
 
 ```
 src/
-  index.ts            entry point + CLI (--self-test) + STDIO transport
+  index.ts            entry point + CLI (--self-test) + STDIO/HTTP transport
   server.ts           assembles McpServer, policy, tracer, backend
   tools.ts            tool definitions; policy-gates and traces every call
   config.ts           env-driven configuration
   policy/             risk-tier engine + rules
   telemetry/          JSONL tracer with redaction
   capture/            PNG metadata helpers
-  backends/           ComputerBackend interface + linux/macos/windows/
-                      browser/accessibility/dry-run implementations
+  backends/           ComputerBackend interface + windows native backend,
+                      browser/accessibility stubs, dry-run implementation
 ```
 
 ## Development
@@ -192,6 +201,21 @@ npm test
 
 Optional: build a codebase knowledge graph with [graphify](https://github.com/safishamsi/graphify) —
 see [CONTRIBUTING.md](./CONTRIBUTING.md#optional-codebase-knowledge-graph-graphify).
+
+### Validate the Windows backend (on Windows)
+
+CI only exercises the dry-run path; the native Windows backend must be checked
+on a real desktop session:
+
+```powershell
+npm ci; npm run build
+node scripts/windows-smoke.mjs                 # geometry + screenshots → full.png / region.png
+$env:CUA_SMOKE_INPUT="1"; node scripts/windows-smoke.mjs   # also move/click/type/key (focus a scratch Notepad first)
+```
+
+Inspect `full.png`/`region.png` for correct pixels under display scaling and
+across monitors. Input actions drive the real desktop; they cannot reach
+elevated/UAC windows.
 
 ## Contributing
 

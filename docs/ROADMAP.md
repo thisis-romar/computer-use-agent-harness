@@ -5,7 +5,7 @@
 - TypeScript MCP server, STDIO + Streamable HTTP transport
 - Risk-tier policy engine with warn/confirm/enforce modes
 - JSONL telemetry with payload redaction
-- Backend interface + real linux/macos/windows shell-out backends
+- Backend interface + Windows native backend (PowerShell + Win32 P/Invoke)
 - Compatibility `computer` tool + structured tools
 - Dry-run backend and `--self-test`
 
@@ -15,11 +15,12 @@
 - Rich screenshot metadata + timings
 - Image budget + best-effort downscale
 
-## Phase 2 — OS determinism
+## Phase 2 — Windows OS determinism (done)
 
-- Per-monitor DPI model and monitor enumeration
+- Per-monitor-DPI-v2 awareness (correct coords under display scaling)
+- Multi-monitor (VirtualScreen) capture and monitor enumeration
+- SendInput keyboard input (Unicode typing + virtual-key combos)
 - Window bounds + active-window geometry
-- Windows UI Automation sidecar
 
 ## Phase 3 — Agent harness features
 
@@ -31,3 +32,8 @@
 
 - Hint-label helper, Playwright/CDP bridge
 - DOM clickable-element listing
+
+## Possible future — Cross-platform automation
+
+- Native Linux/macOS backends (out of scope for the current Windows-first
+  release; revisit once the Windows surface is mature)

@@ -5,8 +5,6 @@ import { RISK_TIERS, type RiskTier } from "./types.js";
 
 export type BackendSelector =
   | "auto"
-  | "linux"
-  | "macos"
   | "windows"
   | "browser"
   | "accessibility"
@@ -90,24 +88,16 @@ function intEnv(value: string | undefined, fallback: number): number {
 }
 
 function parseBackend(value: string | undefined): BackendSelector {
-  const allowed: BackendSelector[] = [
-    "auto",
-    "linux",
-    "macos",
-    "windows",
-    "browser",
-    "accessibility",
-    "dry-run",
-  ];
+  const allowed: BackendSelector[] = ["auto", "windows", "browser", "accessibility", "dry-run"];
   const normalized = (value ?? "auto").trim().toLowerCase();
   return (allowed as string[]).includes(normalized)
     ? (normalized as BackendSelector)
     : "auto";
 }
 
-function defaultTracePath(): string {
+function defaultTracePath(env: NodeJS.ProcessEnv): string {
   const stamp = new Date().toISOString().slice(0, 10);
-  return process.env.CUA_TELEMETRY_PATH ?? `traces/actions-${stamp}.jsonl`;
+  return env.CUA_TELEMETRY_PATH ?? `traces/actions-${stamp}.jsonl`;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): HarnessConfig {
@@ -129,7 +119,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HarnessConfig 
     maxRiskTier: parseTier(env.CUA_MAX_RISK_TIER, "medium"),
     telemetry: {
       enabled: parseBool(env.CUA_TELEMETRY_ENABLED, true),
-      path: defaultTracePath(),
+      path: defaultTracePath(env),
       redactPayloads: parseBool(env.CUA_REDACT_PAYLOADS, true),
     },
   };

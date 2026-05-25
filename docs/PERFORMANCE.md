@@ -7,13 +7,15 @@
 - Per-capture telemetry: `captureMs`, `encodeMs`, `byteSize`, `imageHash`
 - Configurable pre-capture settle delay (`CUA_SCREENSHOT_DELAY_MS`)
 - Image budget with best-effort downscale (`CUA_MAX_IMAGE_LONG_EDGE`,
-  `CUA_MAX_IMAGE_PIXELS`) via ImageMagick `convert` when present
+  `CUA_MAX_IMAGE_PIXELS`)
 - Dependency-free PNG dimension reading (IHDR parse)
+- Per-monitor-DPI-v2 model for correct coordinates under display scaling
+  (Windows backend)
+- Multi-monitor capture across the VirtualScreen (Windows backend)
 - Coordinate metadata contract (see below)
 
 ## Planned
 
-- Native Windows capture sidecar; per-monitor DPI model
 - Screenshot dirty-region detection / dedupe via `imageHash`
 - Adaptive PNG/JPEG/WebP encoding
 - Accessibility-tree targeting; browser DOM helpers

@@ -20,9 +20,9 @@ describe("createBackend", () => {
   });
 
   it("wraps a native backend in dry-run when CUA_DRY_RUN is set", () => {
-    const b = createBackend(cfg({ CUA_BACKEND: "linux", CUA_DRY_RUN: "true" }));
+    const b = createBackend(cfg({ CUA_BACKEND: "windows", CUA_DRY_RUN: "true" }));
     expect(b).toBeInstanceOf(DryRunBackend);
-    expect(b.name).toBe("dry-run(linux-x11)");
+    expect(b.name).toBe("dry-run(windows)");
   });
 });
 

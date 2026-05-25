@@ -364,7 +364,7 @@ export function registerTools(server: McpServer, deps: ToolDeps): void {
           summary: `key ${args.keys}`,
           payload: args.keys,
         },
-        { keys: args.keys },
+        { keys: tracer.redact(args.keys) },
         async () => {
           await backend.key(args.keys);
           return ok({ pressed: args.keys });
@@ -566,7 +566,12 @@ function registerLegacyComputerTool(
         {
           action,
           ...(input.text !== undefined
-            ? { text: action === "type" ? deps.tracer.redact(input.text) : input.text }
+            ? {
+                text:
+                  action === "type" || action === "key"
+                    ? deps.tracer.redact(input.text)
+                    : input.text,
+              }
             : {}),
           ...(point ? { coordinate: [point.x, point.y] } : {}),
           ...(input.region ? { region: input.region } : {}),
