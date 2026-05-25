@@ -10,29 +10,46 @@ permissions:
   contents: read
 
 jobs:
-  build-test:
+  lint:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: "20"
           cache: npm
+      - run: npm ci
+      - run: npm run lint
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-
-      - name: Test
-        run: npm test
-
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, node: "20" }
+          - { os: ubuntu-latest, node: "22" }
+          - { os: macos-latest, node: "20" }
+          - { os: windows-latest, node: "20" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
       - name: Self-test (dry-run)
         run: node dist/index.js --self-test
         env:
           CUA_DRY_RUN: "true"
           CUA_TELEMETRY_PATH: ci-trace.jsonl
+
+  # Aggregate gate. This job name (build-test) is the required status check in
+  # the main branch ruleset, so it must stay stable even as the matrix changes.
+  build-test:
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "lint + cross-platform tests passed"

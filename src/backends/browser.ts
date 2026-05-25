@@ -24,8 +24,8 @@ export class BrowserBackend implements ComputerBackend {
     return { ok: false, detail: "browser backend is a boundary stub (no driver wired)" };
   }
 
-  private nope(capability: string): never {
-    throw new CapabilityNotImplementedError(this.name, capability);
+  private nope(capability: string): Promise<never> {
+    return Promise.reject(new CapabilityNotImplementedError(this.name, capability));
   }
 
   getScreenSize(): Promise<Size> {
