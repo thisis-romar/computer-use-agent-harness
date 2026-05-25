@@ -1,0 +1,16 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "name": "io.github.thisis-romar/computer-use-agent-harness",
+  "description": "A hardened MCP computer-use server with policy controls, telemetry, region capture, zoom-aware screenshots, and sidecar-ready native desktop automation backends.",
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registry_type": "npm",
+      "identifier": "computer-use-agent-harness",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

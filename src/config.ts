@@ -9,9 +9,30 @@ export type BackendSelector =
   | "accessibility"
   | "dry-run";
 
+export type TransportKind = "stdio" | "http";
+
+/**
+ * Policy enforcement posture for tier-ceiling violations:
+ *   enforce -> deny, confirm -> deny + confirmationRequired, warn -> allow + warning.
+ * Content hard-blocks (e.g. destructive payloads) always deny regardless of mode.
+ */
+export type PolicyMode = "enforce" | "warn" | "confirm";
+
 export interface HarnessConfig {
   serverName: string;
   serverVersion: string;
+  /** Transport to expose the MCP server over. */
+  transport: TransportKind;
+  /** Port for the HTTP transport when transport === "http". */
+  httpPort: number;
+  /** Enforcement posture for tier-ceiling violations. */
+  policyMode: PolicyMode;
+  /** Pre-capture settle delay (ms) before taking a screenshot. */
+  screenshotDelayMs: number;
+  /** Downscale screenshots whose longest edge exceeds this (px). */
+  maxImageLongEdge: number;
+  /** Downscale screenshots whose pixel count exceeds this budget. */
+  maxImagePixels: number;
   /** Which native backend to load. "auto" picks by platform. */
   backend: BackendSelector;
   /**
@@ -48,6 +69,23 @@ function parseTier(value: string | undefined, fallback: RiskTier): RiskTier {
   return fallback;
 }
 
+function parseTransport(value: string | undefined): TransportKind {
+  return value?.trim().toLowerCase() === "http" ? "http" : "stdio";
+}
+
+function parsePolicyMode(value: string | undefined): PolicyMode {
+  const normalized = (value ?? "enforce").trim().toLowerCase();
+  if (normalized === "warn" || normalized === "confirm") return normalized;
+  // Accept the reference "block" alias for the strict posture.
+  return "enforce";
+}
+
+function intEnv(value: string | undefined, fallback: number): number {
+  if (value === undefined) return fallback;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 function parseBackend(value: string | undefined): BackendSelector {
   const allowed: BackendSelector[] = [
     "auto",
@@ -77,6 +115,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HarnessConfig 
   return {
     serverName: env.CUA_SERVER_NAME ?? "computer-use-agent-harness",
     serverVersion: env.CUA_SERVER_VERSION ?? "0.1.0",
+    transport: parseTransport(env.CUA_TRANSPORT),
+    httpPort: intEnv(env.CUA_HTTP_PORT, 3099),
+    policyMode: parsePolicyMode(env.CUA_POLICY_MODE),
+    screenshotDelayMs: intEnv(env.CUA_SCREENSHOT_DELAY_MS, 150),
+    maxImageLongEdge: intEnv(env.CUA_MAX_IMAGE_LONG_EDGE, 1568),
+    maxImagePixels: intEnv(env.CUA_MAX_IMAGE_PIXELS, Math.floor(1.15 * 1024 * 1024)),
     backend,
     dryRun,
     maxRiskTier: parseTier(env.CUA_MAX_RISK_TIER, "medium"),

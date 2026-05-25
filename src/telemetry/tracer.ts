@@ -4,20 +4,25 @@ import { dirname } from "node:path";
 
 import type { PolicyDecision } from "../policy/policy.js";
 import { logger } from "../logger.js";
+import { newId } from "../utils/id.js";
 
 export interface TraceRecord {
+  id: string;
   ts: string;
   sessionId: string;
   seq: number;
   tool: string;
-  status: "executed" | "blocked" | "error" | "dry-run";
+  status: "executed" | "blocked" | "confirm" | "error" | "dry-run";
   durationMs: number;
   policy: {
     allowed: boolean;
+    confirmationRequired: boolean;
     effectiveTier: string;
     maxTier: string;
+    mode: string;
     firedRules: string[];
     reason: string;
+    warning?: string;
   };
   /** Sanitized argument summary. Sensitive payloads are redacted. */
   args: Record<string, unknown>;
@@ -46,6 +51,15 @@ export class Tracer {
     this.opts = opts;
   }
 
+  status(): { enabled: boolean; path: string; sessionId: string; recorded: number } {
+    return {
+      enabled: this.opts.enabled,
+      path: this.opts.path,
+      sessionId: this.sessionId,
+      recorded: this.seq,
+    };
+  }
+
   /** Redact a free-text payload to a stable, non-reversible descriptor. */
   redact(payload: string | undefined): string | undefined {
     if (payload === undefined) return undefined;
@@ -55,7 +69,7 @@ export class Tracer {
   }
 
   async record(
-    entry: Omit<TraceRecord, "ts" | "sessionId" | "seq"> & {
+    entry: Omit<TraceRecord, "id" | "ts" | "sessionId" | "seq"> & {
       policy: PolicyDecision | TraceRecord["policy"];
     },
   ): Promise<void> {
@@ -63,14 +77,18 @@ export class Tracer {
       "baseTier" in entry.policy
         ? {
             allowed: entry.policy.allowed,
+            confirmationRequired: entry.policy.confirmationRequired,
             effectiveTier: entry.policy.effectiveTier,
             maxTier: entry.policy.maxTier,
+            mode: entry.policy.mode,
             firedRules: entry.policy.firedRules,
             reason: entry.policy.reason,
+            ...(entry.policy.warning ? { warning: entry.policy.warning } : {}),
           }
         : entry.policy;
 
     const record: TraceRecord = {
+      id: newId("trace"),
       ts: new Date().toISOString(),
       sessionId: this.sessionId,
       seq: this.seq++,

@@ -1,5 +1,7 @@
-import { readPngSize } from "../capture/screenshot.js";
-import type { MouseButton, Point, Region, Size } from "../types.js";
+import { performance } from "node:perf_hooks";
+
+import { finalizeScreenshot, sleep } from "../capture/screenshot.js";
+import type { MouseButton, Point, Region, Size, WindowInfo } from "../types.js";
 import {
   type ComputerBackend,
   type ScreenshotRequest,
@@ -57,7 +59,9 @@ export class LinuxBackend implements ComputerBackend {
     const screenSize = await this.getScreenSize();
     const region: Region = req.region ?? { x: 0, y: 0, ...screenSize };
     const zoom = req.zoom && req.zoom > 0 ? req.zoom : 1;
+    if (req.delayMs) await sleep(req.delayMs);
 
+    const captureStart = performance.now();
     let png: Buffer;
     if (await commandExists("import")) {
       const args = [
@@ -76,18 +80,20 @@ export class LinuxBackend implements ComputerBackend {
       await run("scrot", ["-o", tmp]);
       png = await runBinary("cat", [tmp]);
     }
+    const captureMs = performance.now() - captureStart;
 
-    const pixelSize = readPngSize(png);
-    return {
-      base64: png.toString("base64"),
-      mimeType: "image/png",
+    return finalizeScreenshot({
+      png,
       region,
       screenSize,
-      pixelSize,
-      scale: region.width > 0 ? pixelSize.width / region.width : zoom,
       zoom,
-      capturedAt: new Date().toISOString(),
-    };
+      captureMs,
+      monitorId: process.env.DISPLAY ?? "primary",
+      budget:
+        req.maxLongEdge && req.maxPixels
+          ? { maxLongEdge: req.maxLongEdge, maxPixels: req.maxPixels }
+          : undefined,
+    });
   }
 
   async moveMouse(p: Point): Promise<void> {
@@ -118,5 +124,51 @@ export class LinuxBackend implements ComputerBackend {
     for (let i = 0; i < Math.abs(dy); i++) await run("xdotool", ["click", vButton]);
     const hButton = dx >= 0 ? "7" : "6";
     for (let i = 0; i < Math.abs(dx); i++) await run("xdotool", ["click", hButton]);
+  }
+
+  async drag(to: Point): Promise<void> {
+    await this.ensure();
+    await run("xdotool", ["mousedown", "1"]);
+    try {
+      await run("xdotool", ["mousemove", String(to.x), String(to.y)]);
+    } finally {
+      await run("xdotool", ["mouseup", "1"]);
+    }
+  }
+
+  async windows(): Promise<WindowInfo[]> {
+    await this.ensure();
+    if (!(await commandExists("wmctrl"))) return [];
+    const { stdout } = await run("wmctrl", ["-l"]);
+    let active: string | undefined;
+    try {
+      active = (await run("xdotool", ["getactivewindow"])).stdout.trim();
+    } catch {
+      /* no active window */
+    }
+    return stdout
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [id, , ...rest] = line.split(/\s+/);
+        const decId = id ? String(parseInt(id, 16)) : "";
+        return {
+          id: id ?? "",
+          title: rest.slice(1).join(" "),
+          focused: active !== undefined && decId === active,
+        } satisfies WindowInfo;
+      });
+  }
+
+  async activeWindow(): Promise<WindowInfo | null> {
+    await this.ensure();
+    try {
+      const id = (await run("xdotool", ["getactivewindow"])).stdout.trim();
+      const title = (await run("xdotool", ["getactivewindow", "getwindowname"])).stdout.trim();
+      return { id, title, focused: true };
+    } catch {
+      return null;
+    }
   }
 }

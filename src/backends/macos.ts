@@ -1,9 +1,10 @@
 import { readFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { performance } from "node:perf_hooks";
 
-import { readPngSize } from "../capture/screenshot.js";
-import type { MouseButton, Point, Region, Size } from "../types.js";
+import { finalizeScreenshot, sleep } from "../capture/screenshot.js";
+import type { MouseButton, Point, Region, Size, WindowInfo } from "../types.js";
 import {
   type ComputerBackend,
   type ScreenshotRequest,
@@ -56,8 +57,10 @@ export class MacosBackend implements ComputerBackend {
     const screenSize = await this.getScreenSize();
     const region: Region = req.region ?? { x: 0, y: 0, ...screenSize };
     const zoom = req.zoom && req.zoom > 0 ? req.zoom : 1;
+    if (req.delayMs) await sleep(req.delayMs);
     const out = join(tmpdir(), `cua-shot-${Date.now()}.png`);
 
+    const captureStart = performance.now();
     await run("screencapture", [
       "-x",
       "-R",
@@ -73,17 +76,19 @@ export class MacosBackend implements ComputerBackend {
 
     const png = await readFile(out);
     await unlink(out).catch(() => undefined);
-    const pixelSize = readPngSize(png);
-    return {
-      base64: png.toString("base64"),
-      mimeType: "image/png",
+    const captureMs = performance.now() - captureStart;
+
+    return finalizeScreenshot({
+      png,
       region,
       screenSize,
-      pixelSize,
-      scale: region.width > 0 ? pixelSize.width / region.width : zoom,
       zoom,
-      capturedAt: new Date().toISOString(),
-    };
+      captureMs,
+      budget:
+        req.maxLongEdge && req.maxPixels
+          ? { maxLongEdge: req.maxLongEdge, maxPixels: req.maxPixels }
+          : undefined,
+    });
   }
 
   async moveMouse(p: Point): Promise<void> {
@@ -122,5 +127,32 @@ export class MacosBackend implements ComputerBackend {
     // cliclick lacks a scroll verb; approximate via key presses on a focused view.
     const key = dy >= 0 ? "arrow-down" : "arrow-up";
     for (let i = 0; i < Math.abs(dy); i++) await run("cliclick", [`kp:${key}`]);
+  }
+
+  async drag(to: Point): Promise<void> {
+    await this.ensure();
+    const from = await this.cursorPosition();
+    await run("cliclick", [`dd:${from.x},${from.y}`, `du:${to.x},${to.y}`]);
+  }
+
+  async windows(): Promise<WindowInfo[]> {
+    await this.ensure();
+    const script =
+      'tell application "System Events" to get name of every process whose background only is false';
+    const { stdout } = await run("osascript", ["-e", script]);
+    return stdout
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((app) => ({ id: app, title: app, app }) satisfies WindowInfo);
+  }
+
+  async activeWindow(): Promise<WindowInfo | null> {
+    await this.ensure();
+    const script =
+      'tell application "System Events" to get name of first process whose frontmost is true';
+    const { stdout } = await run("osascript", ["-e", script]);
+    const app = stdout.trim();
+    return app ? { id: app, title: app, app, focused: true } : null;
   }
 }

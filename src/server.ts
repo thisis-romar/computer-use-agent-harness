@@ -24,7 +24,7 @@ export function createServer(config: HarnessConfig): BuiltServer {
 
   const deps: ToolDeps = {
     backend: createBackend(config),
-    policy: new PolicyEngine({ maxTier: config.maxRiskTier }),
+    policy: new PolicyEngine({ maxTier: config.maxRiskTier, mode: config.policyMode }),
     tracer: new Tracer(config.telemetry),
     config,
   };

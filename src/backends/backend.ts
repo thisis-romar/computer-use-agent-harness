@@ -1,4 +1,4 @@
-import type { MouseButton, Point, Region, Size } from "../types.js";
+import type { MouseButton, Point, Region, Size, WindowInfo } from "../types.js";
 
 export interface ScreenshotRequest {
   /** Logical region to capture. Defaults to the full primary screen. */
@@ -8,6 +8,12 @@ export interface ScreenshotRequest {
    * logical area into a larger image; the metadata always records the mapping.
    */
   zoom?: number;
+  /** Pre-capture settle delay (ms). */
+  delayMs?: number;
+  /** Downscale budget: longest edge in pixels. */
+  maxLongEdge?: number;
+  /** Downscale budget: total pixel count. */
+  maxPixels?: number;
 }
 
 export interface ScreenshotResult {
@@ -20,10 +26,28 @@ export interface ScreenshotResult {
   screenSize: Size;
   /** Pixel dimensions of the returned image. */
   pixelSize: Size;
-  /** Device/zoom scale factor: pixelSize / region. */
+  /** Device/zoom scale factor: pixelSize.width / region.width (alias of scaleX). */
   scale: number;
+  scaleX: number;
+  scaleY: number;
   /** Requested zoom factor (1 == native). */
   zoom: number;
+  /** Logical origin of the captured crop. */
+  cropOrigin: Point;
+  /** Identifier of the monitor the capture came from. */
+  monitorId: string;
+  /** Milliseconds spent acquiring the raw image. */
+  captureMs: number;
+  /** Milliseconds spent encoding / downscaling. */
+  encodeMs: number;
+  /** Encoded byte size of the returned image. */
+  byteSize: number;
+  /** Short sha256 prefix of the encoded image, for dedupe/diffing. */
+  imageHash: string;
+  /** Whether the image fit (or was made to fit) the configured budget. */
+  withinBudget: boolean;
+  /** Whether a downscale was applied to satisfy the budget. */
+  downscaled: boolean;
   capturedAt: string;
 }
 
@@ -42,9 +66,15 @@ export interface ComputerBackend {
   screenshot(req: ScreenshotRequest): Promise<ScreenshotResult>;
   moveMouse(p: Point): Promise<void>;
   click(p: Point | undefined, button: MouseButton, count: number): Promise<void>;
+  /** Press-drag from the current cursor position to `to`. */
+  drag(to: Point): Promise<void>;
   typeText(text: string): Promise<void>;
   key(combo: string): Promise<void>;
   scroll(p: Point | undefined, dx: number, dy: number): Promise<void>;
+  /** List visible windows, when the backend supports it. */
+  windows(): Promise<WindowInfo[]>;
+  /** Return the focused window, or null when unsupported/none. */
+  activeWindow(): Promise<WindowInfo | null>;
 }
 
 export class BackendUnavailableError extends Error {

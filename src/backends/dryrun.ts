@@ -1,6 +1,6 @@
-import { readPngSize, syntheticPng } from "../capture/screenshot.js";
+import { finalizeScreenshot, syntheticPng } from "../capture/screenshot.js";
 import { logger } from "../logger.js";
-import type { MouseButton, Point, Region, Size } from "../types.js";
+import type { MouseButton, Point, Region, Size, WindowInfo } from "../types.js";
 import type {
   ComputerBackend,
   ScreenshotRequest,
@@ -48,18 +48,15 @@ export class DryRunBackend implements ComputerBackend {
     const screenSize = await this.getScreenSize();
     const region: Region = req.region ?? { x: 0, y: 0, ...screenSize };
     const zoom = req.zoom && req.zoom > 0 ? req.zoom : 1;
-    const png = syntheticPng();
     logger.debug("dry-run screenshot", { region, zoom });
-    return {
-      base64: png.toString("base64"),
-      mimeType: "image/png",
+    return finalizeScreenshot({
+      png: syntheticPng(),
       region,
       screenSize,
-      pixelSize: readPngSize(png),
-      scale: zoom,
       zoom,
-      capturedAt: new Date().toISOString(),
-    };
+      captureMs: 0,
+      monitorId: "dry-run",
+    });
   }
 
   async moveMouse(p: Point): Promise<void> {
@@ -80,5 +77,26 @@ export class DryRunBackend implements ComputerBackend {
 
   async scroll(p: Point | undefined, dx: number, dy: number): Promise<void> {
     logger.debug("dry-run scroll", { p, dx, dy });
+  }
+
+  async drag(to: Point): Promise<void> {
+    logger.debug("dry-run drag", { ...to });
+  }
+
+  async windows(): Promise<WindowInfo[]> {
+    if (this.inner) {
+      try {
+        return await this.inner.windows();
+      } catch {
+        /* fall through to synthetic */
+      }
+    }
+    return [
+      { id: "dry-run-window", title: "Dry Run Desktop", app: this.name, focused: true },
+    ];
+  }
+
+  async activeWindow(): Promise<WindowInfo | null> {
+    return (await this.windows())[0] ?? null;
   }
 }

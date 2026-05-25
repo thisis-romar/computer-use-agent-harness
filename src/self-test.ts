@@ -11,7 +11,7 @@ import { Tracer } from "./telemetry/tracer.js";
  */
 export async function selfTest(config: HarnessConfig): Promise<boolean> {
   const backend = createBackend(config);
-  const policy = new PolicyEngine({ maxTier: config.maxRiskTier });
+  const policy = new PolicyEngine({ maxTier: config.maxRiskTier, mode: config.policyMode });
   const tracer = new Tracer(config.telemetry);
   const checks: Array<{ name: string; pass: boolean; detail: string }> = [];
 
@@ -28,11 +28,15 @@ export async function selfTest(config: HarnessConfig): Promise<boolean> {
       shot.mimeType === "image/png" &&
       shot.base64.length > 0 &&
       shot.pixelSize.width > 0 &&
-      shot.zoom === 2;
+      shot.zoom === 2 &&
+      shot.byteSize > 0 &&
+      shot.imageHash.length > 0 &&
+      typeof shot.scaleX === "number" &&
+      typeof shot.captureMs === "number";
     checks.push({
       name: "screenshot.metadata",
       pass: valid,
-      detail: `pixelSize=${shot.pixelSize.width}x${shot.pixelSize.height} scale=${shot.scale} zoom=${shot.zoom}`,
+      detail: `pixelSize=${shot.pixelSize.width}x${shot.pixelSize.height} scaleX=${shot.scaleX} zoom=${shot.zoom} bytes=${shot.byteSize} hash=${shot.imageHash}`,
     });
   } catch (err) {
     checks.push({

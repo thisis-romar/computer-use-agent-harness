@@ -1,9 +1,10 @@
 import { readFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { performance } from "node:perf_hooks";
 
-import { readPngSize } from "../capture/screenshot.js";
-import type { MouseButton, Point, Region, Size } from "../types.js";
+import { finalizeScreenshot, sleep } from "../capture/screenshot.js";
+import type { MouseButton, Point, Region, Size, WindowInfo } from "../types.js";
 import {
   type ComputerBackend,
   type ScreenshotRequest,
@@ -68,10 +69,12 @@ export class WindowsBackend implements ComputerBackend {
     const screenSize = await this.getScreenSize();
     const region: Region = req.region ?? { x: 0, y: 0, ...screenSize };
     const zoom = req.zoom && req.zoom > 0 ? req.zoom : 1;
+    if (req.delayMs) await sleep(req.delayMs);
     const out = join(tmpdir(), `cua-shot-${Date.now()}.png`);
     const w = Math.max(1, Math.round(region.width * zoom));
     const h = Math.max(1, Math.round(region.height * zoom));
 
+    const captureStart = performance.now();
     const script = [
       "Add-Type -AssemblyName System.Drawing;",
       `$src=New-Object System.Drawing.Bitmap(${region.width},${region.height});`,
@@ -85,17 +88,19 @@ export class WindowsBackend implements ComputerBackend {
 
     const png = await readFile(out);
     await unlink(out).catch(() => undefined);
-    const pixelSize = readPngSize(png);
-    return {
-      base64: png.toString("base64"),
-      mimeType: "image/png",
+    const captureMs = performance.now() - captureStart;
+
+    return finalizeScreenshot({
+      png,
       region,
       screenSize,
-      pixelSize,
-      scale: region.width > 0 ? pixelSize.width / region.width : zoom,
       zoom,
-      capturedAt: new Date().toISOString(),
-    };
+      captureMs,
+      budget:
+        req.maxLongEdge && req.maxPixels
+          ? { maxLongEdge: req.maxLongEdge, maxPixels: req.maxPixels }
+          : undefined,
+    });
   }
 
   async moveMouse(p: Point): Promise<void> {
@@ -143,5 +148,42 @@ export class WindowsBackend implements ComputerBackend {
       "Add-Type -MemberDefinition '[DllImport(\"user32.dll\")]public static extern void mouse_event(uint f,uint x,uint y,uint d,int e);' -Name U -Namespace W;";
     const delta = -dy * 120;
     await this.ps(`${decl}[W.U]::mouse_event(0x0800,0,0,${delta},0)`);
+  }
+
+  async drag(to: Point): Promise<void> {
+    await this.ensure();
+    const decl =
+      "Add-Type -MemberDefinition '[DllImport(\"user32.dll\")]public static extern void mouse_event(uint f,uint x,uint y,uint d,int e);[DllImport(\"user32.dll\")]public static extern bool SetCursorPos(int x,int y);' -Name U -Namespace W;";
+    await this.ps(
+      `${decl}[W.U]::mouse_event(0x0002,0,0,0,0);[W.U]::SetCursorPos(${to.x},${to.y});[W.U]::mouse_event(0x0004,0,0,0,0);`,
+    );
+  }
+
+  async windows(): Promise<WindowInfo[]> {
+    await this.ensure();
+    const { stdout } = await this.ps(
+      "Get-Process | Where-Object { $_.MainWindowTitle -ne '' } | " +
+        "ForEach-Object { \"$($_.Id)`t$($_.MainWindowTitle)\" }",
+    );
+    return stdout
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [id, ...rest] = line.split("\t");
+        return { id: id ?? "", title: rest.join(" ") } satisfies WindowInfo;
+      });
+  }
+
+  async activeWindow(): Promise<WindowInfo | null> {
+    await this.ensure();
+    const decl =
+      "Add-Type -MemberDefinition '[DllImport(\"user32.dll\")]public static extern System.IntPtr GetForegroundWindow();[DllImport(\"user32.dll\")]public static extern int GetWindowText(System.IntPtr h,System.Text.StringBuilder s,int n);' -Name FG -Namespace W;";
+    const { stdout } = await this.ps(
+      `${decl}$h=[W.FG]::GetForegroundWindow();$sb=New-Object System.Text.StringBuilder 512;[void][W.FG]::GetWindowText($h,$sb,512);Write-Output "$($h.ToInt64())\`t$($sb.ToString())"`,
+    );
+    const [id, ...rest] = stdout.trim().split("\t");
+    if (!id) return null;
+    return { id, title: rest.join(" "), focused: true };
   }
 }

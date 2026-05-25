@@ -19,6 +19,14 @@ export interface Region {
 
 export type MouseButton = "left" | "right" | "middle";
 
+export interface WindowInfo {
+  id: string;
+  title: string;
+  app?: string;
+  bounds?: Region;
+  focused?: boolean;
+}
+
 /** Ordered, comparable risk tiers. Higher index == higher risk. */
 export const RISK_TIERS = ["safe", "low", "medium", "high", "critical"] as const;
 export type RiskTier = (typeof RISK_TIERS)[number];

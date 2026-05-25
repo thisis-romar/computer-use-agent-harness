@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { PolicyEngine } from "./policy.js";
+import type { PolicyMode } from "../config.js";
 import type { RiskTier } from "../types.js";
 
-const engine = (maxTier: RiskTier) => new PolicyEngine({ maxTier });
+const engine = (maxTier: RiskTier, mode?: PolicyMode) => new PolicyEngine({ maxTier, mode });
 
 describe("PolicyEngine", () => {
   it("allows actions at or below the configured max tier", () => {
@@ -59,5 +60,52 @@ describe("PolicyEngine", () => {
     });
     expect(decision.effectiveTier).toBe("high");
     expect(decision.allowed).toBe(true);
+  });
+});
+
+describe("policy modes", () => {
+  const overTier = () =>
+    ({ tool: "computer_type", baseTier: "high", summary: "type" }) as const;
+
+  it("enforce denies tier-ceiling violations", () => {
+    const decision = engine("medium", "enforce").evaluate(overTier());
+    expect(decision.allowed).toBe(false);
+    expect(decision.confirmationRequired).toBe(false);
+  });
+
+  it("confirm denies but flags confirmation required", () => {
+    const decision = engine("medium", "confirm").evaluate(overTier());
+    expect(decision.allowed).toBe(false);
+    expect(decision.confirmationRequired).toBe(true);
+  });
+
+  it("warn allows with a warning", () => {
+    const decision = engine("medium", "warn").evaluate(overTier());
+    expect(decision.allowed).toBe(true);
+    expect(decision.warning).toMatch(/warn/);
+  });
+
+  it("warn never relaxes a hard content block", () => {
+    const decision = engine("critical", "warn").evaluate({
+      tool: "computer_type",
+      baseTier: "medium",
+      summary: "type",
+      payload: "rm -rf / --no-preserve-root",
+    });
+    expect(decision.allowed).toBe(false);
+    expect(decision.firedRules).toContain("destructive-payload");
+  });
+});
+
+describe("sensitive content rule", () => {
+  it("escalates credential-like payloads to high", () => {
+    const decision = engine("critical").evaluate({
+      tool: "computer_type",
+      baseTier: "medium",
+      summary: "type",
+      payload: "my password is hunter2",
+    });
+    expect(decision.effectiveTier).toBe("high");
+    expect(decision.firedRules).toContain("sensitive-content");
   });
 });

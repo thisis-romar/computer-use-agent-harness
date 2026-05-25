@@ -1,4 +1,4 @@
-import type { MouseButton, Point, Size } from "../types.js";
+import type { MouseButton, Point, Size, WindowInfo } from "../types.js";
 import {
   type ComputerBackend,
   type ScreenshotRequest,
@@ -40,6 +40,9 @@ export class BrowserBackend implements ComputerBackend {
   click(_p: Point | undefined, _button: MouseButton, _count: number): Promise<void> {
     return this.nope("click");
   }
+  drag(_to: Point): Promise<void> {
+    return this.nope("drag");
+  }
   typeText(_text: string): Promise<void> {
     return this.nope("typeText");
   }
@@ -48,5 +51,11 @@ export class BrowserBackend implements ComputerBackend {
   }
   scroll(_p: Point | undefined, _dx: number, _dy: number): Promise<void> {
     return this.nope("scroll");
+  }
+  windows(): Promise<WindowInfo[]> {
+    return this.nope("windows");
+  }
+  activeWindow(): Promise<WindowInfo | null> {
+    return this.nope("activeWindow");
   }
 }

@@ -94,27 +94,50 @@ All configuration is via environment variables:
 
 | Variable | Default | Description |
 | --- | --- | --- |
+| `CUA_TRANSPORT` | `stdio` | `stdio` or `http` |
+| `CUA_HTTP_PORT` | `3099` | Port for the HTTP transport |
 | `CUA_BACKEND` | `auto` | `auto`, `linux`, `macos`, `windows`, `browser`, `accessibility`, `dry-run` |
 | `CUA_DRY_RUN` | `false` | Simulate mutating actions; screenshots return synthetic PNGs |
 | `CUA_MAX_RISK_TIER` | `medium` | Highest tier the policy will permit |
+| `CUA_POLICY_MODE` | `enforce` | Tier-ceiling posture: `enforce`, `warn`, or `confirm` |
+| `CUA_SCREENSHOT_DELAY_MS` | `150` | Pre-capture settle delay |
+| `CUA_MAX_IMAGE_LONG_EDGE` | `1568` | Downscale budget: longest edge (px) |
+| `CUA_MAX_IMAGE_PIXELS` | `1205862` | Downscale budget: total pixels |
 | `CUA_TELEMETRY_ENABLED` | `true` | Write JSONL traces |
 | `CUA_TELEMETRY_PATH` | `traces/actions-<date>.jsonl` | Trace file path |
 | `CUA_REDACT_PAYLOADS` | `true` | Store `redacted(len,sha256)` instead of raw typed text |
 | `CUA_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` (stderr only) |
 
+### HTTP transport
+
+```bash
+CUA_TRANSPORT=http CUA_HTTP_PORT=3099 node dist/index.js
+# POST /mcp for JSON-RPC, GET /health for a liveness probe
+```
+
+The HTTP transport ships with **no built-in authentication** — put it behind a
+secure proxy before exposing it.
+
 ## Tools
 
 | Tool | Tier | Description |
 | --- | --- | --- |
+| `computer` | varies | Compatibility multi-action tool (Anthropic computer-use action set) |
 | `harness_status` | safe | Config, backend availability, policy, telemetry target |
-| `policy_describe` | safe | Max tier and active rules |
+| `policy_describe` / `computer_policy_status` | safe | Mode, max tier, and active rules |
+| `computer_trace_status` | safe | Telemetry recorder status |
 | `computer_screen_info` | safe | Primary screen size |
 | `computer_cursor_position` | safe | Current cursor position |
+| `computer_window_list` | safe | Visible windows (backend-permitting) |
+| `computer_active_window` | safe | Focused window (backend-permitting) |
 | `computer_screenshot` | safe | PNG capture with `region` and `zoom`, plus metadata |
+| `computer_screenshot_region` | safe | Region capture |
+| `computer_zoom_region` | safe | Region capture magnified for dense UI |
 | `computer_move_mouse` | low | Move cursor to `x,y` |
 | `computer_click` | low | `button` × `count` click, optional `x,y` |
+| `computer_drag` | low | Press-drag from cursor to `x,y` |
 | `computer_scroll` | low | Wheel `dx,dy`, optional `x,y` |
-| `computer_type` | medium | Type `text` (escalated/blocked if destructive) |
+| `computer_type` | medium | Type `text` (escalated/blocked if destructive/sensitive) |
 | `computer_key` | medium | Press `keys` combo (e.g. `ctrl+c`; OS combos escalate) |
 
 ## Policy engine
@@ -123,14 +146,19 @@ Each action carries a base risk tier. Rules may **escalate** the effective
 tier or **hard-block** an action. An action is denied when it is hard-blocked
 or when its effective tier exceeds `CUA_MAX_RISK_TIER`. Built-in rules:
 
-- `destructive-payload` — blocks typed payloads matching destructive commands
-  (`rm -rf`, `mkfs`, `dd of=/dev/…`, fork bombs, drive formats, `curl | sh`,
-  force pushes, power-state changes).
+- `destructive-payload` — hard-blocks typed payloads matching destructive
+  commands (`rm -rf`, `mkfs`, `dd of=/dev/…`, fork bombs, drive formats,
+  `curl | sh`, force pushes, power-state changes).
+- `sensitive-content` — escalates credential/payment/secret-like payloads
+  (passwords, CVV, SSN, seed phrases, card-number-shaped digits) to `high`.
 - `dangerous-key-combo` — escalates session/OS shortcuts (Ctrl+Alt+Del, Alt+F4,
   lock screen, quit) to `high`.
 
-Blocked actions are still traced (with `status: "blocked"`) so refusals are
-auditable.
+`CUA_POLICY_MODE` controls how **tier-ceiling** violations are handled:
+`enforce` denies (default), `confirm` returns `confirmation_required`, and
+`warn` allows with a warning. Hard content blocks always deny regardless of
+mode. Blocked and confirmation-gated actions are still traced (with
+`status: "blocked"` / `"confirm"`) so refusals are auditable.
 
 ## Telemetry
 

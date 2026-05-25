@@ -70,6 +70,33 @@ export const destructivePayloadRule: PolicyRule = {
   },
 };
 
+/**
+ * Indicators that a payload involves sensitive data entry (credentials,
+ * payment details, secrets). Maps the reference SENSITIVE tier onto our
+ * content-driven model by escalating to "high".
+ */
+const SENSITIVE_PAYLOAD_PATTERNS: Array<{ re: RegExp; reason: string }> = [
+  { re: /\bpass(word|wd|phrase)\b/i, reason: "password/passphrase entry" },
+  { re: /\b(cvv|cvc|cvv2)\b/i, reason: "card security code" },
+  { re: /\b(ssn|social security)\b/i, reason: "government identifier" },
+  { re: /\b(seed phrase|mnemonic|private key|secret key|api[_-]?key)\b/i, reason: "secret material" },
+  { re: /\b(?:\d[ -]*?){13,16}\b/, reason: "card-number-shaped digits" },
+];
+
+export const sensitiveContentRule: PolicyRule = {
+  id: "sensitive-content",
+  description: "Escalates payloads that resemble credentials, payment data, or secrets.",
+  evaluate(action) {
+    if (!action.payload) return null;
+    for (const { re, reason } of SENSITIVE_PAYLOAD_PATTERNS) {
+      if (re.test(action.payload)) {
+        return { escalateTo: "high", reason: `Sensitive: ${reason}` };
+      }
+    }
+    return null;
+  },
+};
+
 export const dangerousKeyComboRule: PolicyRule = {
   id: "dangerous-key-combo",
   description: "Escalates session/OS-level keyboard shortcuts.",
@@ -85,4 +112,8 @@ export const dangerousKeyComboRule: PolicyRule = {
   },
 };
 
-export const defaultRules: PolicyRule[] = [destructivePayloadRule, dangerousKeyComboRule];
+export const defaultRules: PolicyRule[] = [
+  destructivePayloadRule,
+  sensitiveContentRule,
+  dangerousKeyComboRule,
+];
