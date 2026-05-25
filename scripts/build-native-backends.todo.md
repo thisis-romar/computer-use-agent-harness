@@ -1,15 +1,17 @@
 # Native backend TODO
 
-The current backends shell out to platform tools (`xdotool`, `screencapture` +
-`cliclick`, PowerShell). For higher fidelity / determinism, replace or augment
-them with native sidecars behind the same `ComputerBackend` interface.
+The supported backend is Windows (PowerShell + Win32 P/Invoke). For higher
+fidelity / determinism, replace or augment it with native sidecars behind the
+same `ComputerBackend` interface.
 
 ## Windows UI Automation sidecar (C#)
 
 - UI Automation tree walk
 - active-window bounds + focused-element metadata
-- per-monitor DPI
 - click element by AutomationId
+
+(Per-monitor-DPI awareness, multi-monitor VirtualScreen capture, and SendInput
+input are already implemented in the PowerShell + Win32 backend.)
 
 ## Rust capture sidecar
 
@@ -24,5 +26,5 @@ them with native sidecars behind the same `ComputerBackend` interface.
 
 ## Accessibility backend (`src/backends/accessibility.ts`)
 
-- AT-SPI (Linux) / AX (macOS) / UIA (Windows) tree
+- Windows UI Automation (UIA) tree
 - resolve targets by role + name instead of pixels

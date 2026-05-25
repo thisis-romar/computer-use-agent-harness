@@ -46,7 +46,7 @@ describe("loadConfig", () => {
   it("infers dry-run from the dry-run backend but lets an explicit flag override", () => {
     expect(env({ CUA_BACKEND: "dry-run" }).dryRun).toBe(true);
     expect(env({ CUA_BACKEND: "dry-run", CUA_DRY_RUN: "false" }).dryRun).toBe(false);
-    expect(env({ CUA_BACKEND: "linux", CUA_DRY_RUN: "true" }).dryRun).toBe(true);
+    expect(env({ CUA_BACKEND: "windows", CUA_DRY_RUN: "true" }).dryRun).toBe(true);
   });
 
   it("parses booleans for telemetry toggles", () => {

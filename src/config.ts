@@ -5,8 +5,6 @@ import { RISK_TIERS, type RiskTier } from "./types.js";
 
 export type BackendSelector =
   | "auto"
-  | "linux"
-  | "macos"
   | "windows"
   | "browser"
   | "accessibility"
@@ -90,15 +88,7 @@ function intEnv(value: string | undefined, fallback: number): number {
 }
 
 function parseBackend(value: string | undefined): BackendSelector {
-  const allowed: BackendSelector[] = [
-    "auto",
-    "linux",
-    "macos",
-    "windows",
-    "browser",
-    "accessibility",
-    "dry-run",
-  ];
+  const allowed: BackendSelector[] = ["auto", "windows", "browser", "accessibility", "dry-run"];
   const normalized = (value ?? "auto").trim().toLowerCase();
   return (allowed as string[]).includes(normalized)
     ? (normalized as BackendSelector)

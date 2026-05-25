@@ -15,17 +15,21 @@ Telemetry Tracer (JSONL)               (src/telemetry/)
         ↓
 Desktop Backend interface              (src/backends/backend.ts)
         ↓
-linux-x11 / macos / windows / browser* / accessibility* / dry-run
+windows / browser* / accessibility* / dry-run
 ```
 
 `*` = boundary stub (interface-complete, no driver wired yet).
 
+The harness is **Windows-first**: `windows` is the only implemented native
+backend (PowerShell + Win32 P/Invoke, per-monitor DPI, multi-monitor capture,
+SendInput). On non-Windows hosts, `auto` falls back to the browser stub and
+`dry-run` simulates actions for dev/CI.
+
 ## Design goals
 
 1. TypeScript-first MCP surface; `npm`/`npx` distribution.
-2. Real OS automation through small, dependency-light shell-out backends
-   (`xdotool`, `screencapture`/`cliclick`, PowerShell) rather than heavyweight
-   native modules.
+2. Real OS automation through a small, dependency-light backend (Windows
+   PowerShell + Win32 P/Invoke) rather than heavyweight native modules.
 3. Every tool call flows through policy evaluation and produces exactly one
    JSONL trace record.
 4. Screenshots are small, metadata-rich, and coordinate-safe.

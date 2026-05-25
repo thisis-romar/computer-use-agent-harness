@@ -39,6 +39,14 @@ Applies to **tier-ceiling** violations (effective tier > max tier):
 Hard content blocks (e.g. `destructive-payload`) **always deny**, regardless of
 mode. Every decision — allowed, blocked, or confirmation-gated — is traced.
 
+## Windows backend limitations
+
+- It **cannot** automate elevated/UAC windows or the Secure Desktop (e.g. the
+  UAC prompt, the Ctrl+Alt+Del / lock screen). The OS isolates these from
+  unprivileged input injection by design.
+- SendInput is **focus-dependent**: keystrokes go to the currently focused
+  window, so input can land on the wrong target if focus changes mid-action.
+
 ## Hardening roadmap
 
 1. App allow/block lists.

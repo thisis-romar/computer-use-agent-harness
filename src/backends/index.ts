@@ -7,32 +7,22 @@ import { AccessibilityBackend } from "./accessibility.js";
 import type { ComputerBackend } from "./backend.js";
 import { BrowserBackend } from "./browser.js";
 import { DryRunBackend } from "./dryrun.js";
-import { LinuxBackend } from "./linux.js";
-import { MacosBackend } from "./macos.js";
 import { WindowsBackend } from "./windows.js";
 
 export * from "./backend.js";
 
 function nativeForPlatform(platform: NodeJS.Platform): ComputerBackend {
-  switch (platform) {
-    case "linux":
-      return new LinuxBackend();
-    case "darwin":
-      return new MacosBackend();
-    case "win32":
-      return new WindowsBackend();
-    default:
-      logger.warn("no native backend for platform; using browser stub", { platform });
-      return new BrowserBackend();
-  }
+  if (platform === "win32") return new WindowsBackend();
+  // Windows-first: no native backend on other platforms. The browser stub keeps
+  // `auto` usable under dry-run (e.g. Linux CI) without driving a real OS.
+  logger.warn("no native backend for this platform (Windows-only); using browser stub", {
+    platform,
+  });
+  return new BrowserBackend();
 }
 
 function selectRaw(selector: BackendSelector): ComputerBackend {
   switch (selector) {
-    case "linux":
-      return new LinuxBackend();
-    case "macos":
-      return new MacosBackend();
     case "windows":
       return new WindowsBackend();
     case "browser":

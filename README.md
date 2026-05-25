@@ -5,9 +5,9 @@ A hardened MCP computer-use server for safe, observable, high-performance AI des
 `computer-use-agent-harness` is a TypeScript-first [Model Context Protocol](https://modelcontextprotocol.io)
 server for AI-driven desktop control. It extends the lightweight computer-use
 MCP pattern into a full agent harness with structured tools, risk-tier policy
-enforcement, action tracing, screenshot metadata, region/zoom capture, and
-native-backend boundaries for Windows, macOS, Linux, browser automation, and
-future accessibility-tree integrations.
+enforcement, action tracing, screenshot metadata, region/zoom capture, and a
+Windows-first native backend, with interface-complete boundary stubs for
+browser automation and future accessibility-tree integrations.
 
 > [!WARNING]
 > **This software can control your computer.** It moves the mouse, types
@@ -29,8 +29,10 @@ future accessibility-tree integrations.
   redaction by default.
 - **Zoom- and region-aware screenshots** with stable metadata (logical region,
   screen size, pixel size, scale, zoom).
-- **Pluggable native backends** behind a single interface: Linux/X11, macOS,
-  Windows, plus boundary stubs for browser and accessibility-tree drivers.
+- **Windows native backend** behind a single interface (PowerShell + Win32
+  P/Invoke), with per-monitor-DPI-v2 awareness, multi-monitor (VirtualScreen)
+  capture, and SendInput-based keyboard input — plus boundary stubs for browser
+  and accessibility-tree drivers.
 - **Dry-run mode** so the full tool → policy → telemetry path runs in headless
   CI without touching a real desktop.
 
@@ -45,16 +47,22 @@ Requires Node.js >= 20.
 
 ### Native backend prerequisites
 
-The server selects a backend by host platform (override with `CUA_BACKEND`).
+The supported native backend is **Windows only** (override with `CUA_BACKEND`).
 
 | Platform | Capture | Input | Install |
 | --- | --- | --- | --- |
-| Linux/X11 | ImageMagick `import` or `scrot` | `xdotool` | `apt install xdotool imagemagick` (needs a reachable `$DISPLAY`) |
-| macOS | `screencapture` / `sips` (built-in) | `cliclick` | `brew install cliclick` (+ Accessibility permission) |
-| Windows | PowerShell + System.Drawing | PowerShell + SendKeys / Win32 | built-in |
+| Windows 10/11 | PowerShell + System.Drawing (multi-monitor VirtualScreen) | PowerShell + Win32 SendInput | built-in (PowerShell + .NET ship with Windows) |
+
+The Windows backend uses per-monitor-DPI-v2 awareness for correct coordinates
+under display scaling, captures across all monitors via the VirtualScreen, and
+drives input with SendInput (Unicode typing + virtual-key combos). It cannot
+automate elevated/UAC windows or the Secure Desktop, and SendInput is
+focus-dependent.
 
 `browser` and `accessibility` backends are interface-complete boundary stubs;
-they report unavailable until a driver is wired in.
+they report unavailable until a driver is wired in. On non-Windows hosts
+(dev/CI), `auto` falls back to the browser stub and `dry-run` simulates actions
+— there is no native Linux/macOS automation.
 
 ## Running
 
@@ -96,7 +104,7 @@ All configuration is via environment variables:
 | --- | --- | --- |
 | `CUA_TRANSPORT` | `stdio` | `stdio` or `http` |
 | `CUA_HTTP_PORT` | `3099` | Port for the HTTP transport |
-| `CUA_BACKEND` | `auto` | `auto`, `linux`, `macos`, `windows`, `browser`, `accessibility`, `dry-run` |
+| `CUA_BACKEND` | `auto` | `auto`, `windows`, `browser`, `accessibility`, `dry-run` |
 | `CUA_DRY_RUN` | `false` | Simulate mutating actions; screenshots return synthetic PNGs |
 | `CUA_MAX_RISK_TIER` | `medium` | Highest tier the policy will permit |
 | `CUA_POLICY_MODE` | `enforce` | Tier-ceiling posture: `enforce`, `warn`, or `confirm` |
@@ -179,8 +187,8 @@ src/
   policy/             risk-tier engine + rules
   telemetry/          JSONL tracer with redaction
   capture/            PNG metadata helpers
-  backends/           ComputerBackend interface + linux/macos/windows/
-                      browser/accessibility/dry-run implementations
+  backends/           ComputerBackend interface + windows native backend,
+                      browser/accessibility stubs, dry-run implementation
 ```
 
 ## Development
